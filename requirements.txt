@@ -1,0 +1,11 @@
+# Core data processing (etl_pipeline.py, olap_analysis.py, miniProjectPhase1.ipynb)
+pandas>=2.2
+
+# MongoDB audit-log target (etl_pipeline.py)
+#   pymongo   -> live MongoDB Atlas load (needs MONGODB_URI in .env)
+#   mongomock -> offline fallback used by `etl_pipeline.py --dry-run`
+pymongo>=4.0
+mongomock>=4.0
+
+# Interactive walkthrough notebook (miniProjectPhase1.ipynb)
+jupyter>=1.0

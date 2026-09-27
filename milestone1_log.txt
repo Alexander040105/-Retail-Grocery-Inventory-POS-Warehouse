@@ -1,0 +1,79 @@
+Group 8: Grocery Inventory & POS Warehouse - Pipeline Summary
+==============================================================
+Extraction / Cleansing:
+  - Raw rows                 : 990
+  - Currency symbols cleaned : 990
+  - Missing category filled  : 1
+  - Duplicates dropped       : 0
+  - Quarantined rows         : 0 -> quarantined_rows.csv
+  - Cleaned rows             : 990 -> cleaned_grocery_inventory.csv
+
+SQLite Load (warehouse.db):
+  - fact_inventory rows      : 990
+  - dim_product / supplier / store : 124 / 350 / 990
+  - last_order_date range    : 2024-02-25 to 2025-02-24
+  - reorder recommendations  : 298 flagged
+  - CRITICAL stockout risk   : 27 items
+
+MongoDB Load (supplier_audit_logs):
+  - backend                  : MongoDB Atlas
+  - documents in collection  : 350
+  - local export             : supplier_audit_logs.json
+  - env file used            : C:\Users\Pixel-Tone\Documents\GitHub\FourthYearProjects\data_warehousing\.env
+
+Analytics - monthly_variance.sql:
+  monthly_sales_variance (13 rows)
+    sales_month | products_sold | units_sold | revenue | prev_month_revenue | mom_variance | mom_variance_pct
+    2024-02 | 22 | 1347 | 12016.2 | None | None | None
+    2024-03 | 77 | 4603 | 19695.08 | 12016.2 | 7678.88 | 63.9
+    2024-04 | 70 | 4051 | 30830.68 | 19695.08 | 11135.6 | 56.5
+    2024-05 | 84 | 4961 | 26052.07 | 30830.68 | -4778.61 | -15.5
+    2024-06 | 98 | 5754 | 35664.85 | 26052.07 | 9612.78 | 36.9
+    2024-07 | 96 | 5619 | 32055.02 | 35664.85 | -3609.83 | -10.1
+    2024-08 | 78 | 4465 | 30580.0 | 32055.02 | -1475.02 | -4.6
+    2024-09 | 60 | 3720 | 17941.3 | 30580.0 | -12638.7 | -41.3
+    ... (5 more rows)
+
+  category_monthly_variance (91 rows)
+    category | sales_month | units_sold | revenue | mom_variance | mom_variance_pct
+    Bakery | 2024-02 | 182 | 593.1 | None | None
+    Bakery | 2024-03 | 538 | 2090.5 | 1497.4 | 252.5
+    Bakery | 2024-04 | 457 | 1757.4 | -333.1 | -15.9
+    Bakery | 2024-05 | 346 | 1338.5 | -418.9 | -23.8
+    Bakery | 2024-06 | 555 | 2324.5 | 986.0 | 73.7
+    Bakery | 2024-07 | 400 | 1661.5 | -663.0 | -28.5
+    Bakery | 2024-08 | 387 | 1465.5 | -196.0 | -11.8
+    Bakery | 2024-09 | 446 | 1956.0 | 490.5 | 33.5
+    ... (83 more rows)
+
+  monthly_reorder_pressure (13 rows)
+    sales_month | products_at_risk | units_to_reorder | estimated_reorder_spend | cumulative_at_risk
+    2024-02 | 9 | 508 | 4115.5 | 9
+    2024-03 | 19 | 1172 | 5126.65 | 28
+    2024-04 | 20 | 944 | 5043.15 | 48
+    2024-05 | 19 | 773 | 2903.95 | 67
+    2024-06 | 25 | 1377 | 4919.05 | 92
+    2024-07 | 38 | 1995 | 12693.1 | 130
+    2024-08 | 23 | 1434 | 7778.65 | 153
+    2024-09 | 20 | 999 | 4778.2 | 173
+    ... (5 more rows)
+
+  top_stockout_risks (15 rows)
+    product_id | product_name | category | warehouse_location | stock_quantity | sales_volume | days_of_cover | stockout_risk
+    95-449-1286 | Egg (Chicken) | Dairy | 1 Jackson Pass | 10 | 100 | 3.0 | CRITICAL
+    02-575-1980 | Plum | Fruits & Vegetables | 34832 Autumn Leaf Terrace | 11 | 99 | 3.3 | CRITICAL
+    88-951-9038 | Black Coffee | Beverages | 5 Anderson Trail | 11 | 89 | 3.7 | CRITICAL
+    71-594-6552 | Long Grain Rice | Grains & Pulses | 3 Westerfield Crossing | 12 | 95 | 3.8 | CRITICAL
+    88-807-8431 | Haddock | Seafood | 2 Russell Alley | 11 | 86 | 3.8 | CRITICAL
+    51-459-5630 | Sour Cream | Dairy | 805 Center Parkway | 11 | 84 | 3.9 | CRITICAL
+    19-854-3663 | Watermelon | Fruits & Vegetables | 4 Dakota Avenue | 13 | 100 | 3.9 | CRITICAL
+    43-851-9440 | Lime | Fruits & Vegetables | 4033 Sloan Hill | 14 | 100 | 4.2 | CRITICAL
+    ... (7 more rows)
+
+Verification artifacts:
+  - SQLite DB                : C:\Users\Pixel-Tone\Documents\GitHub\FourthYearProjects\data_warehousing\midterms\miniProjectPhase1\warehouse.db
+  - Audit JSON export        : C:\Users\Pixel-Tone\Documents\GitHub\FourthYearProjects\data_warehousing\midterms\miniProjectPhase1\supplier_audit_logs.json
+  - Mongo verification       : C:\Users\Pixel-Tone\Documents\GitHub\FourthYearProjects\data_warehousing\midterms\miniProjectPhase1\mongo_verification.json
+  - Summary report           : C:\Users\Pixel-Tone\Documents\GitHub\FourthYearProjects\data_warehousing\midterms\miniProjectPhase1\milestone1_log.txt
+
+Execution time              : 22.90 seconds

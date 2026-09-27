@@ -1,0 +1,127 @@
+Group 8: Grocery Inventory & POS Warehouse - OLAP Analysis
+==============================================================
+Database : warehouse.db
+Fact rows: 990
+Revenue is computed as sales_volume x unit_price grouped by last_order_date month (see Assumptions in the report).
+
+
+[ 1. ROLL-UP  monthly -> yearly totals ]
+--------------------------------------------------------------
+   (GROUPING SETS emulated via UNION ALL)
+    level | period | units_sold | revenue
+    YEAR | 2024 | 48973 | 294054.54
+    MONTH | 2024-02 | 1347 | 12016.2
+    MONTH | 2024-03 | 4603 | 19695.08
+    MONTH | 2024-04 | 4051 | 30830.68
+    MONTH | 2024-05 | 4961 | 26052.07
+    MONTH | 2024-06 | 5754 | 35664.85
+    MONTH | 2024-07 | 5619 | 32055.02
+    MONTH | 2024-08 | 4465 | 30580.0
+    ... (7 more rows)
+    (15 rows: month + year levels)
+
+[ 2. DRILL-DOWN  top category -> monthly detail ]
+--------------------------------------------------------------
+   Top category by revenue: Fruits & Vegetables (89478.69)
+    sales_month | units_sold | revenue
+    2024-02 | 451 | 1451.1
+    2024-03 | 1567 | 5615.18
+    2024-04 | 1330 | 13434.98
+    2024-05 | 1596 | 5886.02
+    2024-06 | 1775 | 7950.5
+    2024-07 | 1613 | 7143.07
+    2024-08 | 1247 | 8261.25
+    2024-09 | 1036 | 4268.8
+    2024-10 | 1919 | 6563.1
+    2024-11 | 1306 | 5873.95
+    2024-12 | 1734 | 7874.39
+    2025-01 | 1927 | 7282.95
+    ... (1 more rows)
+
+[ 3. SLICE  category = 'Fruits & Vegetables' across status ]
+--------------------------------------------------------------
+    status | items | units_sold | revenue
+    Discontinued | 111 | 6430 | 33687.98
+    Backordered | 112 | 6668 | 28542.62
+    Active | 108 | 6263 | 27248.09
+
+[ 4. DICE  Dairy + Beverages x Active x Jul-Dec 2024 ]
+--------------------------------------------------------------
+    supplier_name | category | units_sold | revenue
+    Wikido | Beverages | 90 | 2700.0
+    Yoveo | Beverages | 69 | 2070.0
+    Youfeed | Beverages | 89 | 1335.0
+    Zoozzy | Beverages | 62 | 1271.0
+    Skivee | Beverages | 46 | 920.0
+    Tagpad | Dairy | 69 | 828.0
+    Digitube | Beverages | 54 | 810.0
+    Feedbug | Beverages | 29 | 739.5
+    Photobug | Beverages | 92 | 736.0
+    Jabbersphere | Dairy | 79 | 703.1
+
+[ 5. PIVOT  category x month revenue matrix (pandas) ]
+--------------------------------------------------------------
+    sales_month          2024-02  2024-03  2024-04  2024-05  2024-06  2024-07  2024-08  2024-09  2024-10  2024-11  2024-12  2025-01  2025-02     TOTAL
+    category                                                                                                                                          
+    Bakery                 593.0   2090.0   1757.0   1338.0   2324.0   1662.0   1466.0   1956.0    508.0   1468.0    300.0   1667.0   1224.0   18354.0
+    Beverages             5893.0   3078.0   2367.0   4726.0   6688.0   5580.0   8264.0   2868.0  11463.0   3882.0   2484.0   5896.0   8328.0   71518.0
+    Dairy                 1009.0   2014.0   2517.0   5583.0   5518.0   4804.0   4392.0   2287.0   6230.0   4562.0   4634.0   3856.0    938.0   48345.0
+    Fruits & Vegetables   1451.0   5615.0  13435.0   5886.0   7950.0   7143.0   8261.0   4269.0   6563.0   5874.0   7874.0   7283.0   7873.0   89479.0
+    Grains & Pulses        183.0   1910.0   2507.0   1600.0   2610.0   3973.0   3420.0   2159.0   2683.0   3039.0   4087.0   2339.0   3285.0   33797.0
+    Oils & Fats              NaN    462.0   1691.0   2063.0   2435.0   1088.0   1177.0    964.0   2789.0   1446.0   1155.0   2732.0    840.0   18842.0
+    Seafood               2887.0   4526.0   6556.0   4855.0   8139.0   7805.0   3600.0   3439.0   8206.0   3655.0   3920.0   2741.0   1211.0   61539.0
+    Uncategorized            NaN      NaN      NaN      NaN      NaN      NaN      NaN      NaN      NaN   2396.0      NaN      NaN      NaN    2396.0
+    TOTAL                12016.0  19695.0  30831.0  26052.0  35665.0  32055.0  30580.0  17941.0  38442.0  26323.0  24454.0  26515.0  23700.0  344269.0
+
+[ 6. RANK  suppliers by revenue (+ running total) ]
+--------------------------------------------------------------
+    rnk | supplier_name | units_sold | revenue | running_revenue
+    1 | Youfeed | 284 | 6613.34 | 6613.34
+    2 | Meeveo | 261 | 5586.14 | 12199.48
+    3 | Vinder | 336 | 4742.05 | 16941.53
+    4 | Katz | 800 | 3895.15 | 20836.68
+    5 | Viva | 240 | 3672.5 | 24509.18
+    6 | Feedmix | 338 | 3521.0 | 28030.18
+    7 | Wikido | 161 | 3088.5 | 31118.68
+    8 | Jaxspan | 380 | 2968.0 | 34086.68
+    9 | Flipbug | 313 | 2944.95 | 37031.63
+    10 | Rooxo | 122 | 2885.8 | 39917.43
+    11 | Skidoo | 284 | 2798.0 | 42715.43
+    12 | Camido | 301 | 2763.3 | 45478.73
+    ... (3 more rows)
+
+[ 7. ABC / PARETO  categories by cumulative revenue share ]
+--------------------------------------------------------------
+    rnk | category | revenue | revenue_pct | cumulative_pct | abc_tier
+    1 | Fruits & Vegetables | 89478.69 | 26.0 | 26.0 | A
+    2 | Beverages | 71517.55 | 20.8 | 46.8 | A
+    3 | Seafood | 61539.1 | 17.9 | 64.6 | A
+    4 | Dairy | 48344.95 | 14.0 | 78.7 | A
+    5 | Grains & Pulses | 33797.05 | 9.8 | 88.5 | B
+    6 | Oils & Fats | 18841.9 | 5.5 | 94.0 | B
+    7 | Bakery | 18354.3 | 5.3 | 99.3 | C
+    8 | Uncategorized | 2395.8 | 0.7 | 100.0 | C
+
+[ 8. STOCKOUT  prevention posture (v_stockout_risk) ]
+--------------------------------------------------------------
+    stockout_risk | items
+    CRITICAL | 27
+    HIGH | 108
+    WATCH | 221
+    LOW | 301
+
+   Most urgent items:
+    product_name | category | warehouse_location | stock_quantity | sales_volume | days_of_cover | stockout_risk
+    Egg (Chicken) | Dairy | 1 Jackson Pass | 10 | 100 | 3.0 | CRITICAL
+    Plum | Fruits & Vegetables | 34832 Autumn Leaf Terrace | 11 | 99 | 3.3 | CRITICAL
+    Black Coffee | Beverages | 5 Anderson Trail | 11 | 89 | 3.7 | CRITICAL
+    Long Grain Rice | Grains & Pulses | 3 Westerfield Crossing | 12 | 95 | 3.8 | CRITICAL
+    Haddock | Seafood | 2 Russell Alley | 11 | 86 | 3.8 | CRITICAL
+    Sour Cream | Dairy | 805 Center Parkway | 11 | 84 | 3.9 | CRITICAL
+    Watermelon | Fruits & Vegetables | 4 Dakota Avenue | 13 | 100 | 3.9 | CRITICAL
+    Lime | Fruits & Vegetables | 4033 Sloan Hill | 14 | 100 | 4.2 | CRITICAL
+    Bread Flour | Grains & Pulses | 06 Lake View Trail | 11 | 77 | 4.3 | CRITICAL
+    Whipped Cream | Dairy | 4929 Westend Point | 14 | 90 | 4.7 | CRITICAL
+
+==============================================================
+Execution time : 0.07 seconds

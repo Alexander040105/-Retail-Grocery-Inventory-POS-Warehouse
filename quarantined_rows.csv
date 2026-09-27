@@ -1,0 +1,1 @@
+product_id,product_name,category,supplier_id,supplier_name,stock_quantity,reorder_level,reorder_quantity,unit_price,date_received,last_order_date,expiration_date,warehouse_location,sales_volume,inventory_turnover_rate,status,category_was_missing,product_id_ok,supplier_id_ok,quarantine_reason

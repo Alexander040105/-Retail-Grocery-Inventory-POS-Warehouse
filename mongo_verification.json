@@ -1,0 +1,60 @@
+{
+  "collection": "supplier_audit_logs",
+  "backend": "mongodb_atlas",
+  "document_count": 350,
+  "sample_document": {
+    "_id": "Abata",
+    "supplier_name": "Abata",
+    "source": "etl_pipeline.py",
+    "generated_at": "2026-09-27T07:02:16.943231+00:00",
+    "summary": {
+      "supplier_ids": [
+        "17-963-6051",
+        "19-809-5654",
+        "40-260-8547"
+      ],
+      "products_supplied": 3,
+      "total_stock": 215,
+      "total_sales_volume": 231,
+      "avg_unit_price": 6.5,
+      "status_counts": {
+        "Active": 1,
+        "Backordered": 1,
+        "Discontinued": 1
+      },
+      "event_count": 5,
+      "severity_counts": {
+        "MEDIUM": 3,
+        "HIGH": 1,
+        "LOW": 1
+      }
+    },
+    "audit_events": [
+      {
+        "product_id": "05-498-7751",
+        "product_name": "Cauliflower",
+        "warehouse_location": "30408 5th Way",
+        "event_type": "EXPIRED_BEFORE_LAST_ORDER",
+        "severity": "MEDIUM",
+        "detail": "expiration 2024-03-24 precedes last order 2024-07-10"
+      },
+      {
+        "product_id": "43-153-8268",
+        "product_name": "Vegetable Oil",
+        "warehouse_location": "29815 Bonner Trail",
+        "event_type": "EXPIRED_BEFORE_LAST_ORDER",
+        "severity": "MEDIUM",
+        "detail": "expiration 2024-10-02 precedes last order 2025-01-29"
+      },
+      {
+        "product_id": "43-153-8268",
+        "product_name": "Vegetable Oil",
+        "warehouse_location": "29815 Bonner Trail",
+        "event_type": "BACKORDERED",
+        "severity": "HIGH",
+        "detail": "product is backordered"
+      }
+    ],
+    "audit_events_truncated": true
+  }
+}
