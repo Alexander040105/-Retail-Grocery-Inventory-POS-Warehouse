@@ -5,6 +5,7 @@ pandas>=2.2
 #   pymongo   -> live MongoDB Atlas load (needs MONGODB_URI in .env)
 #   mongomock -> offline fallback used by `etl_pipeline.py --dry-run`
 pymongo>=4.0
+dnspython>=2.0  # resolves mongodb+srv:// Atlas URIs
 mongomock>=4.0
 
 # Interactive walkthrough notebook (miniProjectPhase1.ipynb)

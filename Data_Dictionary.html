@@ -1,0 +1,261 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Data Dictionary - Group 8 Grocery Warehouse</title>
+<style>
+body{font-family:Segoe UI,Arial,sans-serif;margin:2em;color:#222}
+h1{border-bottom:3px solid #2c5f8a;padding-bottom:.3em}
+h2{margin-top:1.8em;color:#2c5f8a}
+table{border-collapse:collapse;width:100%;font-size:.9em}
+th{background:#2c5f8a;color:#fff;text-align:left}
+th,td{border:1px solid #bbb;padding:5px 8px;vertical-align:top}
+tr:nth-child(even){background:#f4f7fa}
+code,pre{background:#f0f0f0;font-family:Consolas,monospace}
+pre{padding:.8em;overflow-x:auto;font-size:.8em}
+@media print{h2{page-break-before:always} pre{white-space:pre-wrap}}
+</style></head><body>
+<h1>Data Dictionary — Group 8 Grocery Inventory & POS Warehouse</h1>
+<p>Generated 2026-10-10 18:07 by <code>build_data_dictionary.py</code>. Print to PDF via the browser (Ctrl+P) for submission.</p>
+<h2><code>warehouse.db</code> — table <code>dim_product</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>product_key</code></td><td>INTEGER</td><td>PK</td><td>Surrogate primary key for the product dimension.</td><td>generated (AUTOINCREMENT)</td></tr>
+<tr><td><code>product_name</code></td><td>TEXT</td><td>NOT NULL</td><td>Business name of the stocked product.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Product_Name</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>NOT NULL</td><td>Merchandising category (misspelled &#x27;Catagory&#x27; in the source; one null imputed to &#x27;Uncategorized&#x27;).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Catagory (renamed; null -&gt; &#x27;Uncategorized&#x27;)</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE dim_product (
+    product_key   INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_name  TEXT NOT NULL,
+    category      TEXT NOT NULL,
+    UNIQUE (product_name, category)
+)</pre></details>
+<h2><code>warehouse.db</code> — table <code>dim_store</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>store_key</code></td><td>INTEGER</td><td>PK</td><td>Surrogate primary key for the store/warehouse dimension.</td><td>generated (AUTOINCREMENT)</td></tr>
+<tr><td><code>warehouse_location</code></td><td>TEXT</td><td>NOT NULL</td><td>Free-text branch/warehouse address; unique per record so this dimension is 1:1 with the fact.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Warehouse_Location</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE dim_store (
+    store_key           INTEGER PRIMARY KEY AUTOINCREMENT,
+    warehouse_location  TEXT NOT NULL UNIQUE
+)</pre></details>
+<h2><code>warehouse.db</code> — table <code>dim_supplier</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>supplier_key</code></td><td>INTEGER</td><td>PK</td><td>Surrogate primary key for the supplier dimension.</td><td>generated (AUTOINCREMENT)</td></tr>
+<tr><td><code>supplier_name</code></td><td>TEXT</td><td>NOT NULL</td><td>Business name of the supplier entity.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Supplier_Name</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE dim_supplier (
+    supplier_key   INTEGER PRIMARY KEY AUTOINCREMENT,
+    supplier_name  TEXT NOT NULL UNIQUE
+)</pre></details>
+<h2><code>warehouse.db</code> — table <code>fact_inventory</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>record_key</code></td><td>INTEGER</td><td>PK</td><td>Surrogate primary key per inventory/sales record.</td><td>generated (AUTOINCREMENT)</td></tr>
+<tr><td><code>product_id</code></td><td>TEXT</td><td>NOT NULL</td><td>Degenerate dimension: source SKU reference (XX-XXX-XXXX pattern enforced by CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Product_ID</td></tr>
+<tr><td><code>supplier_id</code></td><td>TEXT</td><td>NOT NULL</td><td>Degenerate dimension: source supplier contract reference (XX-XXX-XXXX pattern enforced by CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Supplier_ID</td></tr>
+<tr><td><code>product_key</code></td><td>INTEGER</td><td>NOT NULL, FK -&gt; dim_product.product_key</td><td>Foreign key -&gt; dim_product.product_key.</td><td>derived via dim_product lookup</td></tr>
+<tr><td><code>supplier_key</code></td><td>INTEGER</td><td>NOT NULL, FK -&gt; dim_supplier.supplier_key</td><td>Foreign key -&gt; dim_supplier.supplier_key.</td><td>derived via dim_supplier lookup</td></tr>
+<tr><td><code>store_key</code></td><td>INTEGER</td><td>NOT NULL, FK -&gt; dim_store.store_key</td><td>Foreign key -&gt; dim_store.store_key.</td><td>derived via dim_store lookup</td></tr>
+<tr><td><code>stock_quantity</code></td><td>INTEGER</td><td>NOT NULL</td><td>Units on hand; CHECK &gt;= 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Stock_Quantity</td></tr>
+<tr><td><code>reorder_level</code></td><td>INTEGER</td><td>NOT NULL</td><td>Reorder threshold; replenishment flags when stock_quantity &lt;= reorder_level; CHECK &gt;= 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Reorder_Level</td></tr>
+<tr><td><code>reorder_quantity</code></td><td>INTEGER</td><td>NOT NULL</td><td>Standard replenishment order size; CHECK &gt;= 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Reorder_Quantity</td></tr>
+<tr><td><code>unit_price</code></td><td>REAL</td><td>NOT NULL</td><td>Unit selling price in dollars; currency symbols stripped during cleansing; CHECK &gt; 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Unit_Price (stripped &#x27;$&#x27;, commas, spaces -&gt; REAL)</td></tr>
+<tr><td><code>date_received</code></td><td>TEXT</td><td>NOT NULL</td><td>Date stock was received (ISO YYYY-MM-DD; CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Date_Received (M/D/YYYY -&gt; ISO)</td></tr>
+<tr><td><code>last_order_date</code></td><td>TEXT</td><td>NOT NULL</td><td>Most recent order date; used as the sales month for all revenue/variance analysis (ISO; CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Last_Order_Date (M/D/YYYY -&gt; ISO)</td></tr>
+<tr><td><code>expiration_date</code></td><td>TEXT</td><td>NOT NULL</td><td>Perishable expiry date (ISO; CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Expiration_Date (M/D/YYYY -&gt; ISO)</td></tr>
+<tr><td><code>sales_volume</code></td><td>INTEGER</td><td>NOT NULL</td><td>Units sold in the period; treated as monthly sales velocity; CHECK &gt;= 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Sales_Volume</td></tr>
+<tr><td><code>inventory_turnover_rate</code></td><td>INTEGER</td><td>NOT NULL</td><td>Source-provided turnover ratio; CHECK &gt;= 0.</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Inventory_Turnover_Rate</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>NOT NULL</td><td>Lifecycle status: Active / Backordered / Discontinued (domain enforced by CHECK).</td><td>Grocery_Inventory_and_Sales_Dataset.csv :: Status</td></tr>
+<tr><td><code>row_hash</code></td><td>TEXT</td><td>-</td><td>SHA-256 of the cleansed record; UNIQUE makes ETL re-runs idempotent.</td><td>derived (SHA-256 of cleansed row)</td></tr>
+<tr><td><code>loaded_at</code></td><td>TEXT</td><td>DEFAULT CURRENT_TIMESTAMP</td><td>Warehouse load timestamp (DEFAULT CURRENT_TIMESTAMP).</td><td>generated at load</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE &quot;fact_inventory&quot; (
+    record_key               INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id               TEXT NOT NULL CHECK (product_id GLOB &#x27;[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]&#x27;),
+    supplier_id              TEXT NOT NULL CHECK (supplier_id GLOB &#x27;[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]&#x27;),
+    product_key              INTEGER NOT NULL,
+    supplier_key             INTEGER NOT NULL,
+    store_key                INTEGER NOT NULL,
+    stock_quantity           INTEGER NOT NULL CHECK (stock_quantity &gt;= 0),
+    reorder_level            INTEGER NOT NULL CHECK (reorder_level &gt;= 0),
+    reorder_quantity         INTEGER NOT NULL CHECK (reorder_quantity &gt;= 0),
+    unit_price               REAL    NOT NULL CHECK (unit_price &gt; 0),
+    date_received            TEXT    NOT NULL
+        CHECK (strftime(&#x27;%Y-%m-%d&#x27;, date_received) = date_received),
+    last_order_date          TEXT    NOT NULL
+        CHECK (strftime(&#x27;%Y-%m-%d&#x27;, last_order_date) = last_order_date),
+    expiration_date          TEXT    NOT NULL
+        CHECK (strftime(&#x27;%Y-%m-%d&#x27;, expiration_date) = expiration_date),
+    sales_volume             INTEGER NOT NULL CHECK (sales_volume &gt;= 0),
+    inventory_turnover_rate  INTEGER NOT NULL CHECK (inventory_turnover_rate &gt;= 0),
+    status                   TEXT    NOT NULL
+        CHECK (status IN (&#x27;Active&#x27;, &#x27;Backordered&#x27;, &#x27;Discontinued&#x27;)),
+    row_hash                 TEXT UNIQUE,
+    loaded_at                TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_key)  REFERENCES dim_product(product_key),
+    FOREIGN KEY (supplier_key) REFERENCES dim_supplier(supplier_key),
+    FOREIGN KEY (store_key)    REFERENCES dim_store(store_key)
+)</pre></details>
+<h2><code>warehouse.db</code> — view <code>v_reorder_recommendations</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>record_key</code></td><td>INTEGER</td><td>-</td><td>Fact record reference.</td><td>-</td></tr>
+<tr><td><code>product_id</code></td><td>TEXT</td><td>-</td><td>Source SKU reference.</td><td>-</td></tr>
+<tr><td><code>product_name</code></td><td>TEXT</td><td>-</td><td>Product needing replenishment.</td><td>-</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>-</td><td>Merchandising category.</td><td>-</td></tr>
+<tr><td><code>supplier_name</code></td><td>TEXT</td><td>-</td><td>Supplier to reorder from.</td><td>-</td></tr>
+<tr><td><code>warehouse_location</code></td><td>TEXT</td><td>-</td><td>Site holding the low stock.</td><td>-</td></tr>
+<tr><td><code>stock_quantity</code></td><td>INTEGER</td><td>-</td><td>Units on hand.</td><td>-</td></tr>
+<tr><td><code>reorder_level</code></td><td>INTEGER</td><td>-</td><td>Reorder threshold.</td><td>-</td></tr>
+<tr><td><code>suggested_order_qty</code></td><td>INTEGER</td><td>-</td><td>reorder_quantity carried as the order suggestion.</td><td>-</td></tr>
+<tr><td><code>unit_price</code></td><td>REAL</td><td>-</td><td>Unit price (for spend estimation).</td><td>-</td></tr>
+<tr><td><code>sales_volume</code></td><td>INTEGER</td><td>-</td><td>Monthly sales velocity.</td><td>-</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>-</td><td>Lifecycle status (Discontinued rows excluded).</td><td>-</td></tr>
+<tr><td><code>replenishment_priority</code></td><td>-</td><td>-</td><td>CRITICAL when stock &lt;= 50% of reorder level, HIGH at/below it, else NORMAL.</td><td>-</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE VIEW v_reorder_recommendations AS
+SELECT
+    f.record_key,
+    f.product_id,
+    p.product_name,
+    p.category,
+    s.supplier_name,
+    st.warehouse_location,
+    f.stock_quantity,
+    f.reorder_level,
+    f.reorder_quantity          AS suggested_order_qty,
+    f.unit_price,
+    f.sales_volume,
+    f.status,
+    CASE
+        WHEN f.stock_quantity &lt;= f.reorder_level * 0.5 THEN &#x27;CRITICAL&#x27;
+        WHEN f.stock_quantity &lt;= f.reorder_level       THEN &#x27;HIGH&#x27;
+        ELSE &#x27;NORMAL&#x27;
+    END                         AS replenishment_priority
+FROM fact_inventory f
+JOIN dim_product  p  ON p.product_key  = f.product_key
+JOIN dim_supplier s  ON s.supplier_key = f.supplier_key
+JOIN dim_store    st ON st.store_key   = f.store_key
+WHERE f.stock_quantity &lt;= f.reorder_level
+  AND f.status != &#x27;Discontinued&#x27;</pre></details>
+<h2><code>warehouse.db</code> — view <code>v_stockout_risk</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>record_key</code></td><td>INTEGER</td><td>-</td><td>Fact record reference.</td><td>-</td></tr>
+<tr><td><code>product_id</code></td><td>TEXT</td><td>-</td><td>Source SKU reference.</td><td>-</td></tr>
+<tr><td><code>product_name</code></td><td>TEXT</td><td>-</td><td>At-risk product.</td><td>-</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>-</td><td>Merchandising category.</td><td>-</td></tr>
+<tr><td><code>warehouse_location</code></td><td>TEXT</td><td>-</td><td>Site holding the stock.</td><td>-</td></tr>
+<tr><td><code>stock_quantity</code></td><td>INTEGER</td><td>-</td><td>Units on hand.</td><td>-</td></tr>
+<tr><td><code>sales_volume</code></td><td>INTEGER</td><td>-</td><td>Monthly sales velocity.</td><td>-</td></tr>
+<tr><td><code>days_of_cover</code></td><td>-</td><td>-</td><td>stock_quantity / (sales_volume / 30) - days until stockout at current velocity.</td><td>-</td></tr>
+<tr><td><code>stockout_risk</code></td><td>-</td><td>-</td><td>CRITICAL &lt;7d, HIGH &lt;15d, WATCH &lt;30d, else LOW (Discontinued rows excluded).</td><td>-</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE VIEW v_stockout_risk AS
+SELECT
+    f.record_key,
+    f.product_id,
+    p.product_name,
+    p.category,
+    st.warehouse_location,
+    f.stock_quantity,
+    f.sales_volume,
+    ROUND(f.stock_quantity * 30.0 / NULLIF(f.sales_volume, 0), 1)
+        AS days_of_cover,
+    CASE
+        WHEN f.stock_quantity * 30.0 / NULLIF(f.sales_volume, 0) &lt; 7  THEN &#x27;CRITICAL&#x27;
+        WHEN f.stock_quantity * 30.0 / NULLIF(f.sales_volume, 0) &lt; 15 THEN &#x27;HIGH&#x27;
+        WHEN f.stock_quantity * 30.0 / NULLIF(f.sales_volume, 0) &lt; 30 THEN &#x27;WATCH&#x27;
+        ELSE &#x27;LOW&#x27;
+    END AS stockout_risk
+FROM fact_inventory f
+JOIN dim_product p  ON p.product_key = f.product_key
+JOIN dim_store   st ON st.store_key  = f.store_key
+WHERE f.status != &#x27;Discontinued&#x27;</pre></details>
+<h2><code>marketing_datamart.db</code> — table <code>mart_category_availability</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Merchandising category.</td><td>dim_product.category</td></tr>
+<tr><td><code>status</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Stock posture bucket (Active/Backordered/Discontinued).</td><td>fact_inventory.status</td></tr>
+<tr><td><code>item_count</code></td><td>INTEGER</td><td>NOT NULL</td><td>Fact records in the bucket.</td><td>COUNT(*) fact rows</td></tr>
+<tr><td><code>units_on_hand</code></td><td>INTEGER</td><td>NOT NULL</td><td>Units physically on hand in the bucket.</td><td>SUM(fact_inventory.stock_quantity)</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE mart_category_availability (
+    category      TEXT    NOT NULL,
+    status        TEXT    NOT NULL
+        CHECK (status IN (&#x27;Active&#x27;, &#x27;Backordered&#x27;, &#x27;Discontinued&#x27;)),
+    item_count    INTEGER NOT NULL CHECK (item_count &gt;= 0),
+    units_on_hand INTEGER NOT NULL CHECK (units_on_hand &gt;= 0),
+    PRIMARY KEY (category, status)
+)</pre></details>
+<h2><code>marketing_datamart.db</code> — table <code>mart_location_category_demand</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>warehouse_location</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Branch/warehouse address.</td><td>dim_store.warehouse_location</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Merchandising category.</td><td>dim_product.category</td></tr>
+<tr><td><code>units_sold</code></td><td>INTEGER</td><td>NOT NULL</td><td>Units of the category sold at the site.</td><td>SUM(fact_inventory.sales_volume)</td></tr>
+<tr><td><code>items_stocked</code></td><td>INTEGER</td><td>NOT NULL</td><td>Fact records (stocked items) for the pair.</td><td>COUNT(*) fact rows</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE mart_location_category_demand (
+    warehouse_location TEXT    NOT NULL,
+    category           TEXT    NOT NULL,
+    units_sold         INTEGER NOT NULL CHECK (units_sold &gt;= 0),
+    items_stocked      INTEGER NOT NULL CHECK (items_stocked &gt;= 0),
+    PRIMARY KEY (warehouse_location, category)
+)</pre></details>
+<h2><code>marketing_datamart.db</code> — table <code>mart_monthly_category_sales</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>sales_month</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Calendar month of demand (YYYY-MM, from last_order_date).</td><td>fact_inventory.last_order_date (strftime %Y-%m)</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Merchandising category.</td><td>dim_product.category</td></tr>
+<tr><td><code>units_sold</code></td><td>INTEGER</td><td>NOT NULL</td><td>Total units sold that month in the category.</td><td>SUM(fact_inventory.sales_volume)</td></tr>
+<tr><td><code>active_items</code></td><td>INTEGER</td><td>NOT NULL</td><td>Distinct products with sales that month.</td><td>COUNT(DISTINCT fact_inventory.product_key)</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE mart_monthly_category_sales (
+    sales_month   TEXT    NOT NULL CHECK (sales_month GLOB &#x27;[0-9][0-9][0-9][0-9]-[0-9][0-9]&#x27;),
+    category      TEXT    NOT NULL,
+    units_sold    INTEGER NOT NULL CHECK (units_sold &gt;= 0),
+    active_items  INTEGER NOT NULL CHECK (active_items &gt;= 0),
+    PRIMARY KEY (sales_month, category)
+)</pre></details>
+<h2><code>marketing_datamart.db</code> — table <code>mart_product_demand</code></h2>
+<table><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Business definition</th><th>Source</th></tr>
+<tr><td><code>product_name</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Product business name.</td><td>dim_product.product_name</td></tr>
+<tr><td><code>category</code></td><td>TEXT</td><td>PK, NOT NULL</td><td>Merchandising category.</td><td>dim_product.category</td></tr>
+<tr><td><code>total_units_sold</code></td><td>INTEGER</td><td>NOT NULL</td><td>Lifetime units sold (13-month window).</td><td>SUM(fact_inventory.sales_volume)</td></tr>
+<tr><td><code>months_active</code></td><td>INTEGER</td><td>NOT NULL</td><td>Distinct months with recorded sales.</td><td>COUNT(DISTINCT sales_month)</td></tr>
+<tr><td><code>avg_monthly_units</code></td><td>REAL</td><td>NOT NULL</td><td>total_units_sold / months_active - demand velocity.</td><td>total_units_sold / months_active</td></tr>
+<tr><td><code>last_order_month</code></td><td>TEXT</td><td>NOT NULL</td><td>Most recent month with sales.</td><td>MAX(sales_month)</td></tr>
+<tr><td><code>demand_share_pct</code></td><td>REAL</td><td>NOT NULL</td><td>Share of total units sold across the catalogue (0-100).</td><td>total_units_sold / total units x 100</td></tr>
+</table>
+<details><summary>DDL</summary><pre>CREATE TABLE mart_product_demand (
+    product_name       TEXT    NOT NULL,
+    category           TEXT    NOT NULL,
+    total_units_sold   INTEGER NOT NULL CHECK (total_units_sold &gt;= 0),
+    months_active      INTEGER NOT NULL CHECK (months_active &gt;= 0),
+    avg_monthly_units  REAL    NOT NULL CHECK (avg_monthly_units &gt;= 0),
+    last_order_month   TEXT    NOT NULL
+        CHECK (last_order_month GLOB &#x27;[0-9][0-9][0-9][0-9]-[0-9][0-9]&#x27;),
+    demand_share_pct   REAL    NOT NULL CHECK (demand_share_pct BETWEEN 0 AND 100),
+    PRIMARY KEY (product_name, category)
+)</pre></details>
+<h2><code>warehouse.db</code> — indexes</h2>
+<table><tr><th>Index</th><th>Table</th><th>DDL</th></tr>
+<tr><td><code>idx_dim_product_category</code></td><td><code>dim_product</code></td><td><code>CREATE INDEX idx_dim_product_category ON dim_product(category)</code></td></tr>
+<tr><td><code>idx_fact_last_order_date</code></td><td><code>fact_inventory</code></td><td><code>CREATE INDEX idx_fact_last_order_date
+    ON fact_inventory(last_order_date)</code></td></tr>
+<tr><td><code>idx_fact_product_key</code></td><td><code>fact_inventory</code></td><td><code>CREATE INDEX idx_fact_product_key
+    ON fact_inventory(product_key)</code></td></tr>
+<tr><td><code>idx_fact_status_orderdate</code></td><td><code>fact_inventory</code></td><td><code>CREATE INDEX idx_fact_status_orderdate
+    ON fact_inventory(status, last_order_date)</code></td></tr>
+<tr><td><code>idx_fact_store_key</code></td><td><code>fact_inventory</code></td><td><code>CREATE INDEX idx_fact_store_key
+    ON fact_inventory(store_key)</code></td></tr>
+<tr><td><code>idx_fact_supplier_key</code></td><td><code>fact_inventory</code></td><td><code>CREATE INDEX idx_fact_supplier_key
+    ON fact_inventory(supplier_key)</code></td></tr>
+</table>
+<h2><code>marketing_datamart.db</code> — indexes</h2>
+<table><tr><th>Index</th><th>Table</th><th>DDL</th></tr>
+</table>
+<h2>MongoDB — collection <code>supplier_audit_logs</code></h2>
+<p>Document schema enforced by a strict <code>$jsonSchema</code> validator (validationLevel=strict, validationAction=error):</p>
+<table><tr><th>Field</th><th>Type</th><th>Rule</th></tr>
+<tr><td><code>_id</code></td><td>string</td><td>required</td></tr>
+<tr><td><code>supplier_name</code></td><td>string</td><td>required</td></tr>
+<tr><td><code>source</code></td><td>string</td><td>required</td></tr>
+<tr><td><code>generated_at</code></td><td>string</td><td>required</td></tr>
+<tr><td><code>summary</code></td><td>object</td><td>required</td></tr>
+<tr><td><code>audit_events</code></td><td>array</td><td>required</td></tr>
+</table>
+<p><code>summary</code>: supplier_ids (array), products_supplied, total_stock, total_sales_volume, avg_unit_price, status_counts, event_count, severity_counts — all required.<br><code>audit_events</code> items: product_id, product_name, warehouse_location, event_type (enum), severity (enum), detail — all required.</p>
+</body></html>

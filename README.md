@@ -181,22 +181,44 @@ with the data:
 
 ## Appendix — How to Run
 
-From this folder, using the repository's virtual environment:
+From this folder, using the repository's virtual environment
+(`.venv`, see `requirements.txt`):
 
 ```powershell
-cd data_warehousing\midterms\miniProjectPhase1
-..\..\..\.venv\Scripts\python.exe etl_pipeline.py                # full run (needs MONGODB_URI)
-..\..\..\.venv\Scripts\python.exe etl_pipeline.py --dry-run      # offline run via mongomock
-..\..\..\.venv\Scripts\python.exe etl_pipeline.py --skip-mongo   # SQLite only
-..\..\..\.venv\Scripts\python.exe etl_pipeline.py --full-refresh # rebuild targets
-..\..\..\.venv\Scripts\python.exe olap_analysis.py               # OLAP operations -> olap_output.txt
+.venv\Scripts\python.exe etl_pipeline.py                # full run (needs MONGODB_URI)
+.venv\Scripts\python.exe etl_pipeline.py --dry-run      # offline run via mongomock
+.venv\Scripts\python.exe etl_pipeline.py --skip-mongo   # SQLite only
+.venv\Scripts\python.exe etl_pipeline.py --full-refresh # rebuild targets
+.venv\Scripts\python.exe olap_analysis.py               # OLAP operations -> olap_output.txt
 ```
 
-`run_etl.bat` and `run_olap.bat` wrap the same commands. The MongoDB
-connection is read from `MONGODB_URI` / `MONGODB_DATABASE` in the first
-`.env` found in this folder, then `data_warehousing/.env`. Re-runs are
+The MongoDB connection is read from `MONGODB_URI` / `MONGODB_DATABASE`
+in the `.env` in this folder. Re-runs are
 idempotent (`row_hash` UNIQUE in SQLite, `_id = supplier_name` upserts in
 MongoDB).
+
+## Appendix — Lab Activity 4 (Performance Tuning & Data Mart)
+
+Lab 4 adds structural tuning, governance constraints, and a restricted
+Marketing data mart on top of the warehouse above:
+
+```powershell
+.venv\Scripts\python.exe lab_optimize.py           # backup -> WAL/FK -> indexes + EXPLAIN/timing proof
+.venv\Scripts\python.exe lab_governance.py         # CHECK/NOT NULL rebuild + MongoDB $jsonSchema validator
+.venv\Scripts\python.exe build_datamart.py         # materialize marketing_datamart.db (units only)
+.venv\Scripts\python.exe build_data_dictionary.py  # regenerate Data_Dictionary.md / .html
+```
+
+| File | Purpose |
+|---|---|
+| `lab_optimize.py` | SQLite backup API, WAL/FK pragmas, 6 indexes, before/after EXPLAIN QUERY PLAN + timings |
+| `lab_governance.py` | Rebuilds `fact_inventory` with NOT NULL + CHECK constraints; applies strict `$jsonSchema` validator to `supplier_audit_logs` on Atlas (prints it when Atlas is unreachable) |
+| `build_datamart.py` | Extracts the Marketing mart — 4 aggregate tables, units/volume only (no `unit_price`/revenue) |
+| `marketing_datamart.db` | `mart_monthly_category_sales`, `mart_product_demand`, `mart_location_category_demand`, `mart_category_availability` |
+| `build_data_dictionary.py` | Generates the data dictionary from the live schemas |
+| `Data_Dictionary.md` / `.html` | All warehouse + mart tables, views, indexes, and the MongoDB document schema (open `.html` and print to PDF for submission) |
+| `lab4_execution_log.txt` | Captured console output: backup, plans, speedups, rejections, mart reconciliation |
+| `backups/` | Timestamped `warehouse.db` backups (gitignored) |
 
 | File | Purpose |
 |---|---|
@@ -206,7 +228,6 @@ MongoDB).
 | `olap_analysis.py` | OLAP operations (roll-up, drill-down, slice, dice, rank, ABC) |
 | `olap_output.txt` | OLAP run output |
 | `miniProjectPhase1.ipynb` | Narrated walkthrough notebook |
-| `Group_8_Report.md` | Analytical summary report |
 | `cleaned_grocery_inventory.csv` | Cleaned output dataset |
 | `quarantined_rows.csv` | Rows that failed validation — currently empty |
 | `warehouse.db` | SQLite warehouse (star schema + views) |

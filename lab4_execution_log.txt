@@ -1,0 +1,350 @@
+============================================================================
+LAB ACTIVITY 4 - EXECUTION LOG
+Group 8: Retail Grocery Inventory & Point-of-Sale (POS) Warehouse
+Generated: 2026-10-10 18:07:46
+Interpreter: Python 3.13.2 (.venv)
+============================================================================
+
+############### 1. lab_optimize.py ###############
+
+[BACKUP] warehouse.db -> backups\warehouse_backup_20261010_180747.db (778,240 bytes, 190/190 pages verified)
+[PRAGMA] journal_mode=wal, foreign_keys=1
+Group 8: Grocery Inventory & POS Warehouse - Lab 4 Optimization
+==================================================================
+Database : warehouse.db
+Benchmark: 500 iterations per query (db is small; loops make microsecond-scale differences measurable)
+
+
+[ BASELINE ROW COUNTS ]
+------------------------------------------------------------------
+    dim_product           124 rows
+    dim_supplier          350 rows
+    dim_store             990 rows
+    fact_inventory        990 rows
+
+[ RESET (drop previous lab indexes for an honest baseline) ]
+------------------------------------------------------------------
+    dropped idx_fact_product_key, idx_fact_supplier_key, idx_fact_store_key, idx_fact_last_order_date, idx_fact_status_orderdate, idx_dim_product_category
+
+[ BEFORE: EXPLAIN QUERY PLAN + timing ]
+------------------------------------------------------------------
+  Q1 category revenue join+group  (244.6 ms / 500 runs)
+      SCAN f
+      SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+      USE TEMP B-TREE FOR GROUP BY
+  Q2 dice: category IN + status + date range  (108.5 ms / 500 runs)
+      SCAN f
+      SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+      SEARCH s USING INTEGER PRIMARY KEY (rowid=?)
+      USE TEMP B-TREE FOR GROUP BY
+      USE TEMP B-TREE FOR ORDER BY
+  Q3 supplier revenue join+group  (506.6 ms / 500 runs)
+      SCAN f
+      SEARCH s USING INTEGER PRIMARY KEY (rowid=?)
+      USE TEMP B-TREE FOR GROUP BY
+      USE TEMP B-TREE FOR ORDER BY
+  Q4 single-month sales report  (46.7 ms / 500 runs)
+      SCAN fact_inventory
+
+[ CREATE INDEX ]
+------------------------------------------------------------------
+    CREATE INDEX IF NOT EXISTS idx_fact_product_key ON fact_inventory(product_key)
+      -- idx_fact_product_key: FK join to dim_product in nearly every OLAP query
+    CREATE INDEX IF NOT EXISTS idx_fact_supplier_key ON fact_inventory(supplier_key)
+      -- idx_fact_supplier_key: FK join to dim_supplier (DICE, supplier RANK queries)
+    CREATE INDEX IF NOT EXISTS idx_fact_store_key ON fact_inventory(store_key)
+      -- idx_fact_store_key: FK join to dim_store used by both warehouse views
+    CREATE INDEX IF NOT EXISTS idx_fact_last_order_date ON fact_inventory(last_order_date)
+      -- idx_fact_last_order_date: date filtering / monthly grouping field in all variance queries
+    CREATE INDEX IF NOT EXISTS idx_fact_status_orderdate ON fact_inventory(status, last_order_date)
+      -- idx_fact_status_orderdate: compound index covering the status + date-range DICE pattern
+    CREATE INDEX IF NOT EXISTS idx_dim_product_category ON dim_product(category)
+      -- idx_dim_product_category: category filter / GROUP BY column in ABC, drill-down, slice
+    ANALYZE executed (planner statistics refreshed)
+
+[ AFTER: EXPLAIN QUERY PLAN + timing ]
+------------------------------------------------------------------
+  Q1 category revenue join+group  (180.6 ms / 500 runs)
+      SCAN p USING COVERING INDEX idx_dim_product_category
+      SEARCH f USING INDEX idx_fact_product_key (product_key=?)
+  Q2 dice: category IN + status + date range  (70.5 ms / 500 runs)
+      SEARCH f USING INDEX idx_fact_status_orderdate (status=? AND last_order_date>? AND last_order_date<?)
+      SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+      SEARCH s USING INTEGER PRIMARY KEY (rowid=?)
+      USE TEMP B-TREE FOR GROUP BY
+      USE TEMP B-TREE FOR ORDER BY
+  Q3 supplier revenue join+group  (342.8 ms / 500 runs)
+      SCAN s USING COVERING INDEX sqlite_autoindex_dim_supplier_1
+      SEARCH f USING INDEX idx_fact_supplier_key (supplier_key=?)
+      USE TEMP B-TREE FOR ORDER BY
+  Q4 single-month sales report  (10.3 ms / 500 runs)
+      SEARCH fact_inventory USING INDEX idx_fact_last_order_date (last_order_date>? AND last_order_date<?)
+
+[ SPEEDUP SUMMARY ]
+------------------------------------------------------------------
+    query                                           before ms   after ms  speedup
+    Q1 category revenue join+group                      244.6      180.6    1.35x
+    Q2 dice: category IN + status + date range          108.5       70.5    1.54x
+    Q3 supplier revenue join+group                      506.6      342.8    1.48x
+    Q4 single-month sales report                         46.7       10.3    4.54x
+
+[ VERIFICATION ]
+------------------------------------------------------------------
+    integrity_check    : ok
+    foreign_key_check  : 0 violations
+    indexes now on warehouse.db:
+      idx_dim_product_category     on dim_product
+      idx_fact_last_order_date     on fact_inventory
+      idx_fact_product_key         on fact_inventory
+      idx_fact_status_orderdate    on fact_inventory
+      idx_fact_store_key           on fact_inventory
+      idx_fact_supplier_key        on fact_inventory
+
+==================================================================
+Execution time : 2.53 seconds
+[COMPLETE] Optimization finished - backup in backups/, indexes applied.
+
+############### 2. lab_governance.py ###############
+
+Group 8: Grocery Inventory & POS Warehouse - Lab 4 Governance
+==================================================================
+
+[ 1. PRE-AUDIT - existing data must satisfy every constraint ]
+------------------------------------------------------------------
+    Proposed constraint                                   violations
+    product_id / supplier_id NOT NULL                             0
+    ids match XX-XXX-XXXX pattern                                 0
+    dimension keys NOT NULL                                       0
+    stock_quantity >= 0                                           0
+    reorder_level >= 0                                            0
+    reorder_quantity >= 0                                         0
+    unit_price > 0                                                0
+    sales_volume >= 0                                             0
+    inventory_turnover_rate >= 0                                  0
+    dates are ISO YYYY-MM-DD                                      0
+    status in (Active, Backordered, Discontinued)                 0
+    all checks pass - safe to enforce at DDL level
+
+[ 2. REBUILD fact_inventory with strict DDL (single transaction) ]
+------------------------------------------------------------------
+    rebuilt fact_inventory : 990 rows copied, views + indexes recreated
+
+[ 3. POST-REBUILD VERIFICATION ]
+------------------------------------------------------------------
+    integrity_check   : ok
+    foreign_key_check : 0 violations
+    lab indexes present : 6
+    governed DDL:
+      CREATE TABLE "fact_inventory" (
+          record_key               INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id               TEXT NOT NULL CHECK (product_id GLOB '[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'),
+          supplier_id              TEXT NOT NULL CHECK (supplier_id GLOB '[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'),
+          product_key              INTEGER NOT NULL,
+          supplier_key             INTEGER NOT NULL,
+          store_key                INTEGER NOT NULL,
+          stock_quantity           INTEGER NOT NULL CHECK (stock_quantity >= 0),
+          reorder_level            INTEGER NOT NULL CHECK (reorder_level >= 0),
+          reorder_quantity         INTEGER NOT NULL CHECK (reorder_quantity >= 0),
+          unit_price               REAL    NOT NULL CHECK (unit_price > 0),
+          date_received            TEXT    NOT NULL
+              CHECK (strftime('%Y-%m-%d', date_received) = date_received),
+          last_order_date          TEXT    NOT NULL
+              CHECK (strftime('%Y-%m-%d', last_order_date) = last_order_date),
+          expiration_date          TEXT    NOT NULL
+              CHECK (strftime('%Y-%m-%d', expiration_date) = expiration_date),
+          sales_volume             INTEGER NOT NULL CHECK (sales_volume >= 0),
+          inventory_turnover_rate  INTEGER NOT NULL CHECK (inventory_turnover_rate >= 0),
+          status                   TEXT    NOT NULL
+              CHECK (status IN ('Active', 'Backordered', 'Discontinued')),
+          row_hash                 TEXT UNIQUE,
+          loaded_at                TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (product_key)  REFERENCES dim_product(product_key),
+          FOREIGN KEY (supplier_key) REFERENCES dim_supplier(supplier_key),
+          FOREIGN KEY (store_key)    REFERENCES dim_store(store_key)
+      )
+
+[ 4. ENFORCEMENT PROOF - invalid inserts must be rejected ]
+------------------------------------------------------------------
+    negative stock_quantity      rejected (CHECK) : CHECK constraint failed: stock_quantity >= 0
+    non-positive unit_price      rejected (CHECK) : CHECK constraint failed: unit_price > 0
+    status outside domain        rejected (CHECK) : CHECK constraint failed: status IN ('Active', 'Backordered', 'Discontinued')
+    orphan product_key           rejected (FOREIGN KEY) : FOREIGN KEY constraint failed
+
+[ 5. MONGODB $jsonSchema VALIDATOR - supplier_audit_logs ]
+------------------------------------------------------------------
+    MONGODB_URI failed: bad auth : authentication failed, full error: {'ok': 0, 'errmsg': 'bad auth : authentication failed', 'code': 8000, 'codeName': 'AtlasError'}
+    connected to Atlas db 'grocery_warehouse' via MONGODB_URI2 (env: D:\63947\Documents\GitHub\-Retail-Grocery-Inventory-POS-Warehouse\.env)
+    validator applied via collMod (validationLevel=strict, validationAction=error):
+{
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": [
+            "_id",
+            "supplier_name",
+            "source",
+            "generated_at",
+            "summary",
+            "audit_events"
+        ],
+        "properties": {
+            "_id": {
+                "bsonType": "string"
+            },
+            "supplier_name": {
+                "bsonType": "string"
+            },
+            "source": {
+                "bsonType": "string"
+            },
+            "generated_at": {
+                "bsonType": "string"
+            },
+            "summary": {
+                "bsonType": "object",
+                "required": [
+                    "supplier_ids",
+                    "products_supplied",
+                    "total_stock",
+                    "total_sales_volume",
+                    "avg_unit_price",
+                    "status_counts",
+                    "event_count",
+                    "severity_counts"
+                ],
+                "properties": {
+                    "supplier_ids": {
+                        "bsonType": "array",
+                        "items": {
+                            "bsonType": "string"
+                        }
+                    },
+                    "products_supplied": {
+                        "bsonType": "int"
+                    },
+                    "total_stock": {
+                        "bsonType": "int"
+                    },
+                    "total_sales_volume": {
+                        "bsonType": "int"
+                    },
+                    "avg_unit_price": {
+                        "bsonType": [
+                            "double",
+                            "int",
+                            "long"
+                        ]
+                    },
+                    "status_counts": {
+                        "bsonType": "object"
+                    },
+                    "event_count": {
+                        "bsonType": "int"
+                    },
+                    "severity_counts": {
+                        "bsonType": "object"
+                    }
+                }
+            },
+            "audit_events": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "object",
+                    "required": [
+                        "product_id",
+                        "product_name",
+                        "warehouse_location",
+                        "event_type",
+                        "severity",
+                        "detail"
+                    ],
+                    "properties": {
+                        "product_id": {
+                            "bsonType": "string"
+                        },
+                        "product_name": {
+                            "bsonType": "string"
+                        },
+                        "warehouse_location": {
+                            "bsonType": "string"
+                        },
+                        "event_type": {
+                            "enum": [
+                                "REORDER_TRIGGERED",
+                                "STOCKOUT_RISK",
+                                "EXPIRED_BEFORE_LAST_ORDER",
+                                "BACKORDERED",
+                                "DISCONTINUED_WITH_STOCK",
+                                "MISSING_CATEGORY"
+                            ]
+                        },
+                        "severity": {
+                            "enum": [
+                                "LOW",
+                                "MEDIUM",
+                                "HIGH",
+                                "CRITICAL"
+                            ]
+                        },
+                        "detail": {
+                            "bsonType": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+    server now reports validator on 'supplier_audit_logs': {"$jsonSchema": {"bsonType": "object", "required": ["_id", "supplier_name", "source", "generated_at", "summary", "audit_...
+    collection documents before proof : 350
+    malformed doc insert  : rejected by validator (WriteError)
+    conforming doc insert : accepted
+    probe doc deleted     : collection documents after = 350
+
+==================================================================
+Execution time : 1.31 seconds
+[COMPLETE] Governance applied - constraints active, MongoDB validator set.
+
+############### 3. build_datamart.py ###############
+
+Group 8: Grocery Inventory & POS Warehouse - Marketing Data Mart
+==================================================================
+Scope: Marketing dept - unit/volume/availability metrics only.
+unit_price and derived revenue are NOT exported (no margin data).
+
+[ 1. CREATE constrained mart schema ]
+------------------------------------------------------------------
+    created mart_monthly_category_sales
+    created mart_product_demand
+    created mart_location_category_demand
+    created mart_category_availability
+
+[ 2. EXTRACT + AGGREGATE from tuned warehouse ]
+------------------------------------------------------------------
+    mart_monthly_category_sales           91 rows
+    mart_product_demand                  124 rows
+    mart_location_category_demand        990 rows
+    mart_category_availability            22 rows
+
+[ 3. RECONCILIATION - mart totals must match fact_inventory ]
+------------------------------------------------------------------
+    mart_monthly_category_sales.units_sold      58336 vs 58336  OK
+    mart_product_demand.total_units_sold        58336 vs 58336  OK
+    mart_location_category_demand.units_sold    58336 vs 58336  OK
+    mart_category_availability.item_count         990 vs 990  OK
+
+[ 4. CONFIDENTIALITY CHECK - no financial columns in mart ]
+------------------------------------------------------------------
+    financial columns present: none
+
+==================================================================
+Mart file    : marketing_datamart.db (131,072 bytes)
+Execution time : 1.06 seconds
+[COMPLETE] Marketing data mart materialized and reconciled.
+
+############### 4. build_data_dictionary.py ###############
+
+[DICTIONARY] wrote Data_Dictionary.md (17,233 bytes)
+[DICTIONARY] wrote Data_Dictionary.html (22,461 bytes)
+[DICTIONARY] 10 objects documented, 6 indexes listed
+
+############### END OF LOG ###############

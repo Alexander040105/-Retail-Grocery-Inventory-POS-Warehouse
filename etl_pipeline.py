@@ -295,21 +295,27 @@ CREATE TABLE IF NOT EXISTS dim_store (
 
 CREATE TABLE IF NOT EXISTS fact_inventory (
     record_key               INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_id               TEXT NOT NULL,   -- degenerate: source SKU ref
-    supplier_id              TEXT NOT NULL,   -- degenerate: source contract ref
+    product_id               TEXT NOT NULL   -- degenerate: source SKU ref
+        CHECK (product_id GLOB '[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'),
+    supplier_id              TEXT NOT NULL   -- degenerate: source contract ref
+        CHECK (supplier_id GLOB '[0-9][0-9]-[0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'),
     product_key              INTEGER NOT NULL,
     supplier_key             INTEGER NOT NULL,
     store_key                INTEGER NOT NULL,
-    stock_quantity           INTEGER,
-    reorder_level            INTEGER,
-    reorder_quantity         INTEGER,
-    unit_price               REAL,
-    date_received            TEXT,
-    last_order_date          TEXT,
-    expiration_date          TEXT,
-    sales_volume             INTEGER,
-    inventory_turnover_rate  INTEGER,
-    status                   TEXT,
+    stock_quantity           INTEGER NOT NULL CHECK (stock_quantity >= 0),
+    reorder_level            INTEGER NOT NULL CHECK (reorder_level >= 0),
+    reorder_quantity         INTEGER NOT NULL CHECK (reorder_quantity >= 0),
+    unit_price               REAL    NOT NULL CHECK (unit_price > 0),
+    date_received            TEXT    NOT NULL
+        CHECK (strftime('%Y-%m-%d', date_received) = date_received),
+    last_order_date          TEXT    NOT NULL
+        CHECK (strftime('%Y-%m-%d', last_order_date) = last_order_date),
+    expiration_date          TEXT    NOT NULL
+        CHECK (strftime('%Y-%m-%d', expiration_date) = expiration_date),
+    sales_volume             INTEGER NOT NULL CHECK (sales_volume >= 0),
+    inventory_turnover_rate  INTEGER NOT NULL CHECK (inventory_turnover_rate >= 0),
+    status                   TEXT    NOT NULL
+        CHECK (status IN ('Active', 'Backordered', 'Discontinued')),
     row_hash                 TEXT UNIQUE,
     loaded_at                TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_key)  REFERENCES dim_product(product_key),
@@ -366,6 +372,20 @@ FROM fact_inventory f
 JOIN dim_product p  ON p.product_key = f.product_key
 JOIN dim_store   st ON st.store_key  = f.store_key
 WHERE f.status != 'Discontinued';
+
+-- Lab 4 tuning indexes (see lab_optimize.py for before/after proof).
+CREATE INDEX IF NOT EXISTS idx_fact_product_key
+    ON fact_inventory(product_key);
+CREATE INDEX IF NOT EXISTS idx_fact_supplier_key
+    ON fact_inventory(supplier_key);
+CREATE INDEX IF NOT EXISTS idx_fact_store_key
+    ON fact_inventory(store_key);
+CREATE INDEX IF NOT EXISTS idx_fact_last_order_date
+    ON fact_inventory(last_order_date);
+CREATE INDEX IF NOT EXISTS idx_fact_status_orderdate
+    ON fact_inventory(status, last_order_date);
+CREATE INDEX IF NOT EXISTS idx_dim_product_category
+    ON dim_product(category);
 """
 
 
